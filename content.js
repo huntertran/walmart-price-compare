@@ -45,6 +45,17 @@ function extractPromotion(container) {
     };
 }
 
+function extractCoupon(container) {
+    // Look for coupon like "$2 coupon" in the banner
+    const couponEl = container.querySelector('[data-testid="product-promo-banner"]');
+    if (!couponEl) return null;
+    const couponText = couponEl.textContent.trim().toLowerCase();
+    // Match "$2 coupon", "$1.50 coupon", etc.
+    const match = couponText.match(/\$([\d\.]+)\s*coupon/i);
+    if (!match) return null;
+    return parseFloat(match[1]);
+}
+
 function extractUnit(container) {
     // Try to find unit (e.g., "12 ct", "500 g", etc.)
     const unitEl = container.querySelector('[data-automation-id="product-title"]');
@@ -68,7 +79,7 @@ function extractUnit(container) {
     return { amount: parseFloat(match[1]), unit: match[2] };
 }
 
-function showPricePerUnit(container, price, unitObj, promo, walmartPricePerUnit) {
+function showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit) {
     if (!price || !unitObj) {
         // No price or unit
         if (!walmartPricePerUnit) {
@@ -133,6 +144,62 @@ function showPricePerUnit(container, price, unitObj, promo, walmartPricePerUnit)
         infoDiv.appendChild(promoDiv);
     }
 
+    // Coupon price per unit
+    if (couponValue) {
+        let couponPrice = Math.max(price - couponValue, 0);
+        let couponPerUnit, couponPerUnitText;
+        if (unitObj.unit === "g") {
+            couponPerUnit = couponPrice / (unitObj.amount / 100);
+            couponPerUnitText = `With $${couponValue} coupon: Price per 100g: $${couponPerUnit.toFixed(2)}`;
+        } else if (unitObj.unit === "ml") {
+            couponPerUnit = couponPrice / (unitObj.amount / 100);
+            couponPerUnitText = `With $${couponValue} coupon: Price per 100ml: $${couponPerUnit.toFixed(2)}`;
+        } else if (unitObj.unit === "l") {
+            couponPerUnit = couponPrice / (unitObj.amount * 10);
+            couponPerUnitText = `With $${couponValue} coupon: Price per 100ml: $${couponPerUnit.toFixed(2)}`;
+        } else {
+            couponPerUnit = couponPrice / unitObj.amount;
+            couponPerUnitText = `With $${couponValue} coupon: Price per ${unitObj.unit}: $${couponPerUnit.toFixed(2)}`;
+        }
+        let couponDiv = document.createElement('div');
+        couponDiv.className = 'price-per-unit-info-coupon';
+        couponDiv.textContent = couponPerUnitText;
+        couponDiv.style.background = '#b3e0ff';
+        couponDiv.style.padding = '8px';
+        couponDiv.style.fontWeight = 'bold';
+        couponDiv.style.margin = '5px 0 10px 0';
+        couponDiv.style.borderRadius = '4px';
+        infoDiv.appendChild(couponDiv);
+    }
+
+    // Coupon + Promotion price per unit
+    if (couponValue && promo) {
+        let promoCouponPrice = Math.max(promo.total - couponValue, 0);
+        let promoCouponPerUnit, promoCouponPerUnitText;
+        if (unitObj.unit === "g") {
+            promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) / 100);
+            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per 100g: $${promoCouponPerUnit.toFixed(2)}`;
+        } else if (unitObj.unit === "ml") {
+            promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) / 100);
+            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per 100ml: $${promoCouponPerUnit.toFixed(2)}`;
+        } else if (unitObj.unit === "l") {
+            promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) * 10);
+            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per 100ml: $${promoCouponPerUnit.toFixed(2)}`;
+        } else {
+            promoCouponPerUnit = promoCouponPrice / (unitObj.amount * promo.qty);
+            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per ${unitObj.unit}: $${promoCouponPerUnit.toFixed(2)}`;
+        }
+        let promoCouponDiv = document.createElement('div');
+        promoCouponDiv.className = 'price-per-unit-info-promo-coupon';
+        promoCouponDiv.textContent = promoCouponPerUnitText;
+        promoCouponDiv.style.background = '#ffe0b3';
+        promoCouponDiv.style.padding = '8px';
+        promoCouponDiv.style.fontWeight = 'bold';
+        promoCouponDiv.style.margin = '5px 0 10px 0';
+        promoCouponDiv.style.borderRadius = '4px';
+        infoDiv.appendChild(promoCouponDiv);
+    }
+
     // Insert after price
     const priceEl = container.querySelector('[data-automation-id="product-price"]');
     if (priceEl && priceEl.parentNode) {
@@ -151,8 +218,9 @@ function processProducts() {
         const price = extractPrice(container);
         const unitObj = extractUnit(container);
         const promo = extractPromotion(container);
+        const couponValue = extractCoupon(container);
         const walmartPricePerUnit = extractWalmartPricePerUnit(container)
-        showPricePerUnit(container, price, unitObj, promo, walmartPricePerUnit);
+        showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit);
     });
 }
 
