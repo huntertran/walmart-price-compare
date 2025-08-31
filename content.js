@@ -33,11 +33,12 @@ Unit.All = [
 
 function getUnit(unitText) {
     for (let i = 0; i < Unit.All.length; i++) {
-        if (Unit.All[i].Unit === unitText) {
-            return Unit.All[i]
+        // Split RegexString by '|' to get all aliases
+        const aliases = Unit.All[i].RegexString.split('|');
+        if (aliases.includes(unitText)) {
+            return Unit.All[i];
         }
     }
-
     return null;
 }
 
@@ -209,7 +210,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
         let couponPerUnit = couponPrice / (unitObj.amount / unitObj.unit.ScaleToStandard);
         let couponDiv = document.createElement('div');
         couponDiv.className = 'price-per-unit-info-coupon';
-        couponDiv.textContent = `Price per $${couponPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | with $${couponValue} coupon`;
+        couponDiv.textContent = `$${couponPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | with $${couponValue} coupon`;
         couponDiv.style.background = '#b3e0ff';
         couponDiv.style.padding = '8px';
         couponDiv.style.fontWeight = 'bold';
