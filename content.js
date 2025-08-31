@@ -1,4 +1,46 @@
 // This script runs on walmart.ca and extracts price, unit, and calculates price per unit
+class Unit {
+    constructor(unit, regexString, scaleToStandard, standardAmount) {
+        this.unit = unit;
+        this.regexString = regexString;
+        this.scaleToStandard = scaleToStandard;
+        this.standardAmount = standardAmount;
+    }
+
+    get Unit() { return this.unit; }
+    get RegexString() { return this.regexString; }
+    get ScaleToStandard() { return this.scaleToStandard; }
+    get StandardAmount() { return this.standardAmount; }
+}
+
+Unit.Gram = new Unit("g", "g", 100, "100g");
+Unit.Kilogram = new Unit("kg", "kg", 10, "100g");
+Unit.Milliliter = new Unit("ml", "ml", 100, "100ml");
+Unit.Liter = new Unit("l", "l", 10, "100ml");
+Unit.Ounce = new Unit("oz", "oz|ounce", 28.3495, "1oz");
+Unit.Pound = new Unit("lb", "lb|pound", 453.592, "1lb");
+Unit.Count = new Unit("ct", "ct|count", 1, "1ct");
+
+Unit.All = [
+    Unit.Gram,
+    Unit.Kilogram,
+    Unit.Milliliter,
+    Unit.Liter,
+    Unit.Ounce,
+    Unit.Pound,
+    Unit.Count
+];
+
+function getUnit(unitText) {
+    for (let i = 0; i < Unit.All.length; i++) {
+        if (Unit.All[i].Unit === unitText) {
+            return Unit.All[i]
+        }
+    }
+
+    return null;
+}
+
 function extractPrice(container) {
     // Try to find price element (common Walmart.ca selectors)
     const priceEl = container.querySelector('[data-automation-id="product-price"]>[aria-hidden="true"]');
@@ -13,10 +55,6 @@ function extractWalmartPricePerUnit(container) {
     if (!pricePerUnitEl) return null;
     const pricePerUnitText = pricePerUnitEl.textContent.trim();
     // Example: "11¢/100ml" or "$1.23/100g"
-    let regexString = "";
-    if (pricePerUnitText.includes("¢")) regexString = "([\d\.]+)\s*¢\/(\d+)([a-zA-Z]+)";
-    else if (pricePerUnitText.includes("$")) regexString = "([\d\.]+)\$\s*\/(\d+)([a-zA-Z]+)";
-    else return null;
     const match = pricePerUnitText.match(/([\d\.]+)\s*(¢|\$)\/(\d+)([a-zA-Z]+)/);
     if (!match) return null;
     let value = parseFloat(match[1]);
@@ -26,7 +64,7 @@ function extractWalmartPricePerUnit(container) {
     return {
         value: value,
         amount: amount,
-        unit: unit,
+        unit: getUnit(unit),
         text: `$${value.toFixed(2)}/${amount}${unit}`
     };
 }
@@ -71,12 +109,30 @@ function extractUnit(container) {
 
     // Match count (e.g., "12 ct") or weight (e.g., "500 g")
     let match = null;
+    let regexString = "\\d+(?:\\.\\d+)?\\s*(";
+    for (let i = 0; i < Unit.All.length; i++) {
+        regexString += Unit.All[i].RegexString + "|";
+    }
+    regexString = regexString.slice(0, -1);
+    regexString += ")";
     for (let i = unitTexts.length - 1; i >= 0; i--) {
-        match = unitTexts[i].trim().match(/(\d+(?:\.\d+)?)\s*(ct|g|gm|kg|ml|l|oz|lb|count|pound)/i);
+        match = unitTexts[i].trim().match(new RegExp(regexString, "i"));
         if (match) break;
     }
     if (!match) return null;
-    return { amount: parseFloat(match[1]), unit: match[2] };
+    if (match.length < 2) return null;
+    let amount = parseFloat(match[0]);
+    let unitText = match[1].toLowerCase();
+
+    let unit = getUnit(unitText);
+    if (unit) {
+        return {
+            amount: amount,
+            unit: unit
+        }
+    }
+
+    return null;
 }
 
 function showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit) {
@@ -93,49 +149,52 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
         }
     }
 
-    let perUnit, perUnitText;
-    if (unitObj.unit === "g") {
-        perUnit = price / (unitObj.amount / 100);
-        perUnitText = `Price per 100g: $${perUnit.toFixed(2)}`;
-    } else if (unitObj.unit === "ml") {
-        perUnit = price / (unitObj.amount / 100);
-        perUnitText = `Price per 100ml: $${perUnit.toFixed(2)}`;
-    } else if (unitObj.unit === "l") {
-        perUnit = price / (unitObj.amount * 10); // 1L = 1000ml, so 1L = 10 x 100ml
-        perUnitText = `Price per 100ml: $${perUnit.toFixed(2)}`;
-    } else {
-        perUnit = price / unitObj.amount;
-        perUnitText = `Price per ${unitObj.unit}: $${perUnit.toFixed(2)}`;
-    }
     // Display on page
     let infoDiv = document.createElement('div');
+
+    let usedWalmartPPU = false;
+    if (
+        walmartPricePerUnit &&
+        (price / (unitObj.amount / unitObj.unit.ScaleToStandard)) > (walmartPricePerUnit.value / (walmartPricePerUnit.amount / walmartPricePerUnit.unit.ScaleToStandard))
+    ) {
+        // Use Walmart price per unit
+        price = walmartPricePerUnit.value;
+        unitObj = {
+            amount: walmartPricePerUnit.amount,
+            unit: walmartPricePerUnit.unit
+        };
+        usedWalmartPPU = true;
+    }
+
     infoDiv.className = 'price-per-unit-info';
-    infoDiv.textContent = perUnitText;
     infoDiv.style.background = '#ffe600';
     infoDiv.style.padding = '8px';
     infoDiv.style.fontWeight = 'bold';
     infoDiv.style.margin = '10px 0';
     infoDiv.style.borderRadius = '4px';
 
+    // Set text content
+    infoDiv.textContent = `$${(price / (unitObj.amount / unitObj.unit.ScaleToStandard)).toFixed(2)} / ${unitObj.unit.StandardAmount}`;
+
+    // If using Walmart price per unit, add Walmart icon
+    if (usedWalmartPPU) {
+        const icon = document.createElement('img');
+        icon.classList.add('ppu-walmart-icon');
+        icon.src = 'https://www.walmart.ca/favicon.ico';
+        icon.alt = 'Walmart';
+        icon.style.width = '18px';
+        icon.style.height = '18px';
+        icon.style.verticalAlign = 'middle';
+        icon.style.marginLeft = '6px';
+        infoDiv.appendChild(icon);
+    }
+
     // Promotion price per unit
     if (promo) {
-        let promoPerUnit, promoPerUnitText;
-        if (unitObj.unit === "g") {
-            promoPerUnit = promo.total / ((unitObj.amount * promo.qty) / 100);
-            promoPerUnitText = `Buying ${promo.qty}: Price per 100g: $${promoPerUnit.toFixed(2)}`;
-        } else if (unitObj.unit === "ml") {
-            promoPerUnit = promo.total / ((unitObj.amount * promo.qty) / 100);
-            promoPerUnitText = `Buying ${promo.qty}: Price per 100ml: $${promoPerUnit.toFixed(2)}`;
-        } else if (unitObj.unit === "l") {
-            promoPerUnit = promo.total / ((unitObj.amount * promo.qty) * 10);
-            promoPerUnitText = `Buying ${promo.qty}: Price per 100ml: $${promoPerUnit.toFixed(2)}`;
-        } else {
-            promoPerUnit = promo.total / (unitObj.amount * promo.qty);
-            promoPerUnitText = `Buying ${promo.qty}: Price per ${unitObj.unit}: $${promoPerUnit.toFixed(2)}`;
-        }
+        let promoPerUnit = promo.total / ((unitObj.amount * promo.qty) / unitObj.unit.ScaleToStandard);
         let promoDiv = document.createElement('div');
         promoDiv.className = 'price-per-unit-info-promo';
-        promoDiv.textContent = promoPerUnitText;
+        promoDiv.textContent = `$${promoPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | if buying ${promo.qty}`;
         promoDiv.style.background = '#c6ffb3';
         promoDiv.style.padding = '8px';
         promoDiv.style.fontWeight = 'bold';
@@ -147,23 +206,10 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     // Coupon price per unit
     if (couponValue) {
         let couponPrice = Math.max(price - couponValue, 0);
-        let couponPerUnit, couponPerUnitText;
-        if (unitObj.unit === "g") {
-            couponPerUnit = couponPrice / (unitObj.amount / 100);
-            couponPerUnitText = `With $${couponValue} coupon: Price per 100g: $${couponPerUnit.toFixed(2)}`;
-        } else if (unitObj.unit === "ml") {
-            couponPerUnit = couponPrice / (unitObj.amount / 100);
-            couponPerUnitText = `With $${couponValue} coupon: Price per 100ml: $${couponPerUnit.toFixed(2)}`;
-        } else if (unitObj.unit === "l") {
-            couponPerUnit = couponPrice / (unitObj.amount * 10);
-            couponPerUnitText = `With $${couponValue} coupon: Price per 100ml: $${couponPerUnit.toFixed(2)}`;
-        } else {
-            couponPerUnit = couponPrice / unitObj.amount;
-            couponPerUnitText = `With $${couponValue} coupon: Price per ${unitObj.unit}: $${couponPerUnit.toFixed(2)}`;
-        }
+        let couponPerUnit = couponPrice / (unitObj.amount / unitObj.unit.ScaleToStandard);
         let couponDiv = document.createElement('div');
         couponDiv.className = 'price-per-unit-info-coupon';
-        couponDiv.textContent = couponPerUnitText;
+        couponDiv.textContent = `Price per $${couponPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | with $${couponValue} coupon`;
         couponDiv.style.background = '#b3e0ff';
         couponDiv.style.padding = '8px';
         couponDiv.style.fontWeight = 'bold';
@@ -175,23 +221,10 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     // Coupon + Promotion price per unit
     if (couponValue && promo) {
         let promoCouponPrice = Math.max(promo.total - couponValue, 0);
-        let promoCouponPerUnit, promoCouponPerUnitText;
-        if (unitObj.unit === "g") {
-            promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) / 100);
-            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per 100g: $${promoCouponPerUnit.toFixed(2)}`;
-        } else if (unitObj.unit === "ml") {
-            promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) / 100);
-            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per 100ml: $${promoCouponPerUnit.toFixed(2)}`;
-        } else if (unitObj.unit === "l") {
-            promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) * 10);
-            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per 100ml: $${promoCouponPerUnit.toFixed(2)}`;
-        } else {
-            promoCouponPerUnit = promoCouponPrice / (unitObj.amount * promo.qty);
-            promoCouponPerUnitText = `With $${couponValue} coupon & buying ${promo.qty}: Price per ${unitObj.unit}: $${promoCouponPerUnit.toFixed(2)}`;
-        }
+        let promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) / unitObj.unit.ScaleToStandard);
         let promoCouponDiv = document.createElement('div');
         promoCouponDiv.className = 'price-per-unit-info-promo-coupon';
-        promoCouponDiv.textContent = promoCouponPerUnitText;
+        promoCouponDiv.textContent = `$${promoCouponPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | With $${couponValue} coupon & buying ${promo.qty}`;
         promoCouponDiv.style.background = '#ffe0b3';
         promoCouponDiv.style.padding = '8px';
         promoCouponDiv.style.fontWeight = 'bold';

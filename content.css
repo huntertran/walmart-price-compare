@@ -1,0 +1,32 @@
+/* Tooltip wrapper */
+.ppu-walmart-tooltip-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+/* Tooltip text (hidden by default) */
+.ppu-walmart-tooltip-text {
+    visibility: hidden;
+    width: 180px;
+    background-color: #222;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 6px 8px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    /* Position above the icon */
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+/* Show the tooltip text on hover */
+.ppu-walmart-tooltip-wrapper:hover .ppu-walmart-tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
