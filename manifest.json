@@ -10,6 +10,7 @@
     "host_permissions": [
         "https://www.walmart.ca/*"
     ],
+    "homepage_url": "https://huntertran.ca/2025/08/31/Grocery-stores-Price-per-Unit-add-on/",
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
