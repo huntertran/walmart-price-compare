@@ -17,5 +17,11 @@ This extension works on walmart.ca product pages, extracts the item price and un
 - `background.js`: Background script
 - `icon16.png`, `icon48.png`, `icon128.png`: Extension icons (replace with your own)
 
+## Tests
+
+To test the extension, go to walmart.ca site, search for a product (for example, "eggs"), and the price per unit should appear under each item in the search result.
+
+You can also search for keywords like `coupon` for item with coupon, or `roll back` for weekly discounted items
+
 ## Notes
 - The extension uses common selectors for price and unit. If Walmart.ca changes their layout, selectors may need updating.
