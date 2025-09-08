@@ -1,35 +1,60 @@
 // This script runs on walmart.ca and extracts price, unit, and calculates price per unit
 class Unit {
-    constructor(unit, regexString, scaleToStandard, standardAmount) {
+    constructor(id, unit, regexString, scaleToStandard, standardAmount, scaleToStandardUnit) {
+        this.id = id;
         this.unit = unit;
         this.regexString = regexString;
         this.scaleToStandard = scaleToStandard;
         this.standardAmount = standardAmount;
+        this.scaleToStandardUnit = scaleToStandardUnit;
     }
 
+    get Id() { return this.id; }
     get Unit() { return this.unit; }
     get RegexString() { return this.regexString; }
     get ScaleToStandard() { return this.scaleToStandard; }
     get StandardAmount() { return this.standardAmount; }
+    get ScaleToStandardUnit() { return this.scaleToStandardUnit; }
 }
 
-Unit.Gram = new Unit("g", "g", 100, "100g");
-Unit.Kilogram = new Unit("kg", "kg", 10, "100g");
-Unit.Milliliter = new Unit("ml", "ml", 100, "100ml");
-Unit.Liter = new Unit("l", "l", 10, "100ml");
-Unit.Ounce = new Unit("oz", "oz|ounce", 28.3495, "1oz");
-Unit.Pound = new Unit("lb", "lb|pound", 453.592, "1lb");
-Unit.Count = new Unit("ct", "ct|count", 1, "1ct");
+Unit.Kilogram = new Unit(0, "kg", "kg", 10, "100g", 1000);
+Unit.Milliliter = new Unit(4, "ml", "ml", 0.01, "100ml", 1);
+Unit.Ounce = new Unit(3, "oz", "oz|ounce", 1, "oz", 29.5735);
+Unit.Pound = new Unit(2, "lb", "lb|pound", 1, "lb", 453.592);
+Unit.Count = new Unit(6, "ct", "ct|count", 1, "1ct");
+Unit.Gram = new Unit(1, "g", "g", 0.01, "100g", 1);
+Unit.Liter = new Unit(5, "l", "l|liters", 10, "100ml", 1000);
 
+// unit with 2 characters must be placed at the top
 Unit.All = [
-    Unit.Gram,
     Unit.Kilogram,
     Unit.Milliliter,
-    Unit.Liter,
     Unit.Ounce,
     Unit.Pound,
-    Unit.Count
+    Unit.Count,
+    Unit.Gram,
+    Unit.Liter
 ];
+
+const regexString = (() => {
+    let regexString = "\\d+(?:\\.\\d+)?\\s*(";
+    for (let i = 0; i < Unit.All.length; i++) {
+        regexString += Unit.All[i].RegexString + "|";
+    }
+    regexString = regexString.slice(0, -1);
+    regexString += ")";
+    return regexString;
+})();
+
+const bulkUnitRegexString = (() => {
+    let regexString = "(\\d+)\\s*x\\s*(\\d+(?:\\.\\d+)?)\\s*(";
+    for (let i = 0; i < Unit.All.length; i++) {
+        regexString += Unit.All[i].RegexString + "|";
+    }
+    regexString = regexString.slice(0, -1);
+    regexString += ")";
+    return regexString;
+})();
 
 function getUnit(unitText) {
     for (let i = 0; i < Unit.All.length; i++) {
@@ -108,14 +133,27 @@ function extractUnit(container) {
         }
     }
 
+    // Bulk match count (e.g., "6 x 200 mL")
+    let bulkMatch = null;
+    for (let i = unitTexts.length - 1; i >= 0; i--) {
+        bulkMatch = unitTexts[i].trim().match(new RegExp(bulkUnitRegexString, "i"));
+        if (bulkMatch) break;
+    }
+    if (bulkMatch) {
+        const amount = parseFloat(bulkMatch[1]);
+        const multiplier = parseFloat(bulkMatch[2]);
+        const unitText = bulkMatch[3].toLowerCase();
+        const unit = getUnit(unitText);
+        if (unit) {
+            return {
+                amount: amount * multiplier,
+                unit: unit
+            }
+        }
+    }
+
     // Match count (e.g., "12 ct") or weight (e.g., "500 g")
     let match = null;
-    let regexString = "\\d+(?:\\.\\d+)?\\s*(";
-    for (let i = 0; i < Unit.All.length; i++) {
-        regexString += Unit.All[i].RegexString + "|";
-    }
-    regexString = regexString.slice(0, -1);
-    regexString += ")";
     for (let i = unitTexts.length - 1; i >= 0; i--) {
         match = unitTexts[i].trim().match(new RegExp(regexString, "i"));
         if (match) break;
@@ -142,30 +180,20 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
         if (!walmartPricePerUnit) {
             return;
         } else {
-            price = walmartPricePerUnit.value;
             unitObj = {
                 amount: walmartPricePerUnit.amount,
                 unit: walmartPricePerUnit.unit
             };
+            price = walmartPricePerUnit.value;
         }
     }
 
     // Display on page
     let infoDiv = document.createElement('div');
 
-    let usedWalmartPPU = false;
-    if (
+    let usedWalmartPPU =
         walmartPricePerUnit &&
-        (price / (unitObj.amount / unitObj.unit.ScaleToStandard)) > (walmartPricePerUnit.value / (walmartPricePerUnit.amount / walmartPricePerUnit.unit.ScaleToStandard))
-    ) {
-        // Use Walmart price per unit
-        price = walmartPricePerUnit.value;
-        unitObj = {
-            amount: walmartPricePerUnit.amount,
-            unit: walmartPricePerUnit.unit
-        };
-        usedWalmartPPU = true;
-    }
+        (price / (unitObj.amount * unitObj.unit.ScaleToStandard)) > (walmartPricePerUnit.value / (walmartPricePerUnit.amount * walmartPricePerUnit.unit.ScaleToStandard));
 
     infoDiv.className = 'price-per-unit-info';
     infoDiv.style.background = '#ffe600';
@@ -175,7 +203,12 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     infoDiv.style.borderRadius = '4px';
 
     // Set text content
-    infoDiv.textContent = `$${(price / (unitObj.amount / unitObj.unit.ScaleToStandard)).toFixed(2)} / ${unitObj.unit.StandardAmount}`;
+    if (usedWalmartPPU) {
+        infoDiv.textContent = `$${walmartPricePerUnit.value.toFixed(2)} / ${walmartPricePerUnit.unit.StandardAmount}`;
+    }
+    else {
+        infoDiv.textContent = `$${(price / (unitObj.amount * unitObj.unit.ScaleToStandard)).toFixed(2)} / ${unitObj.unit.StandardAmount}`;
+    }
 
     // If using Walmart price per unit, add Walmart icon
     if (usedWalmartPPU) {
@@ -192,7 +225,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
 
     // Promotion price per unit
     if (promo) {
-        let promoPerUnit = promo.total / ((unitObj.amount * promo.qty) / unitObj.unit.ScaleToStandard);
+        let promoPerUnit = promo.total / ((unitObj.amount * promo.qty) * unitObj.unit.ScaleToStandard);
         let promoDiv = document.createElement('div');
         promoDiv.className = 'price-per-unit-info-promo';
         promoDiv.textContent = `$${promoPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | if buying ${promo.qty}`;

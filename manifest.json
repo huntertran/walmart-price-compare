@@ -5,7 +5,8 @@
     "description": "Shows price per unit for items on walmart.ca.",
     "permissions": [
         "activeTab",
-        "scripting"
+        "scripting",
+        "storage"
     ],
     "host_permissions": [
         "https://www.walmart.ca/*"

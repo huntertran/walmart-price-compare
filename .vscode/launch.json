@@ -13,6 +13,14 @@
             "runtimeArgs": [
                 "--load-extension=${workspaceFolder}"
             ]
+        },
+        {
+            "type": "chrome",
+            "name": "Launch chrome on https://walmart.ca against localhost:port",
+            "request": "launch",
+            "url": "https://walmart.ca/",
+            "webRoot": "${workspaceFolder}",
+            "port": 9876 // any available port
         }
     ]
 }
