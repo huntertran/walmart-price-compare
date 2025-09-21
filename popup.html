@@ -1,7 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
     <title>Walmart Price Per Unit</title>
     <style>
         body {
@@ -14,6 +17,30 @@
             font-weight: bold;
             margin-top: 10px;
         }
+
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        select {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #f9f9f9;
+            font-size: 15px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s;
+        }
+
+        select:focus {
+            border-color: #ffe600;
+            outline: none;
+            background: #fffbe6;
+        }
     </style>
 </head>
 
@@ -21,7 +48,7 @@
     <h3>Price Per Unit</h3>
     <div id="result">Open a Walmart.ca product page to see price per unit.</div>
 
-    <!-- <label for="preferred-unit-liquid">Preferred liquid unit:</label>
+    <label for="preferred-unit-liquid">Preferred liquid unit:</label>
     <select id="preferred-unit-liquid">
         <option value="">As is (no conversion)</option>
         <option value="ml">ml</option>
@@ -34,7 +61,7 @@
         <option value="g">g</option>
         <option value="lb">lb</option>
     </select>
-    <script src="popup.js"></script> -->
+    <script src="popup.js"></script>
 </body>
 
 </html>

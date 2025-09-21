@@ -56,6 +56,9 @@ const bulkUnitRegexString = (() => {
     return regexString;
 })();
 
+let preferredUnitWeight;
+let preferredUnitLiquid;
+
 function getUnit(unitText) {
     for (let i = 0; i < Unit.All.length; i++) {
         // Split RegexString by '|' to get all aliases
@@ -188,8 +191,34 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
         }
     }
 
+    // Conversion
+    let preferredUnit = null;
+    switch (unitObj.unit) {
+        case Unit.Gram:
+        case Unit.Kilogram:
+        case Unit.Pound: {
+            preferredUnit = preferredUnitWeight;
+            break;
+        }
+        default: {
+            preferredUnit = preferredUnitLiquid;
+            break;
+        }
+    }
+    if (preferredUnit && preferredUnit !== unitObj.unit) {
+        unitObj.amount = unitObj.amount * unitObj.unit.ScaleToStandardUnit
+        unitObj.unit = preferredUnit;
+        unitObj.amount = unitObj.amount / unitObj.unit.ScaleToStandardUnit
+    }
+
     // Display on page
-    let infoDiv = document.createElement('div');
+    let infoDiv = container.querySelector('.price-per-unit-info');
+    if (!infoDiv) {
+        infoDiv = document.createElement('div');
+    } else {
+        // Clear previous content if reusing
+        infoDiv.innerHTML = '';
+    }
 
     let usedWalmartPPU =
         walmartPricePerUnit &&
@@ -203,7 +232,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     infoDiv.style.borderRadius = '4px';
 
     // Set text content
-    if (usedWalmartPPU) {
+    if (usedWalmartPPU && (preferredUnit === null || preferredUnit === undefined)) {
         infoDiv.textContent = `$${walmartPricePerUnit.value.toFixed(2)} / ${walmartPricePerUnit.unit.StandardAmount}`;
     }
     else {
@@ -211,7 +240,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     }
 
     // If using Walmart price per unit, add Walmart icon
-    if (usedWalmartPPU) {
+    if (usedWalmartPPU && (preferredUnit === null || preferredUnit === undefined)) {
         const icon = document.createElement('img');
         icon.classList.add('ppu-walmart-icon');
         icon.src = 'https://www.walmart.ca/favicon.ico';
@@ -276,26 +305,71 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     }
 }
 
+async function getPreferredUnit(unitObj) {
+    let preferredUnit;
+    switch (unitObj.unit) {
+        case Unit.Gram:
+        case Unit.Kilogram:
+        case Unit.Pound: {
+            let textUnit = await chrome.storage.sync.get('preferredUnitWeight');
+            preferredUnit = getUnit(textUnit);
+            break;
+        }
+        default: {
+            let textUnit = await chrome.storage.sync.get('preferredUnitLiquid')
+            preferredUnit = getUnit(textUnit);
+            break;
+        }
+    }
+
+    return preferredUnit;
+}
+
 // Select all product containers (adjust selector as needed)
 function processProducts() {
-    const productContainers = document.querySelectorAll('[data-item-id]');
-    productContainers.forEach(container => {
-        // Prevent duplicate infoDivs
-        if (container.querySelector('.price-per-unit-info')) return;
-        const price = extractPrice(container);
-        const unitObj = extractUnit(container);
-        const promo = extractPromotion(container);
-        const couponValue = extractCoupon(container);
-        const walmartPricePerUnit = extractWalmartPricePerUnit(container)
-        showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit);
+    chrome.storage.sync.get(['preferredUnitLiquid', 'preferredUnitWeight'], (data) => {
+        preferredUnitLiquid = getUnit(data.preferredUnitLiquid) || undefined;
+        preferredUnitWeight = getUnit(data.preferredUnitWeight) || undefined;
+
+        const productContainers = document.querySelectorAll('[data-item-id]');
+        productContainers.forEach(container => {
+            // // Prevent duplicate infoDivs
+            // if (container.querySelector('.price-per-unit-info')) return;
+            const price = extractPrice(container);
+            const unitObj = extractUnit(container);
+            const promo = extractPromotion(container);
+            const couponValue = extractCoupon(container);
+            const walmartPricePerUnit = extractWalmartPricePerUnit(container)
+            showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit);
+        });
     });
 }
 
 // Initial run
 processProducts();
 
-// Re-run when DOM changes
-const observer = new MutationObserver(() => {
+// // Re-run when DOM changes
+// const observer = new MutationObserver(() => {
+//     processProducts();
+// });
+// observer.observe(document.body, { childList: true, subtree: true });
+
+// Re-run when URL changes (for SPA navigation)
+// let lastUrl = location.href;
+// setInterval(() => {
+//     if (location.href !== lastUrl) {
+//         lastUrl = location.href;
+//         processProducts();
+//     }
+// }, 500);
+
+document.addEventListener('DOMContentLoaded', () => {
     processProducts();
 });
-observer.observe(document.body, { childList: true, subtree: true });
+
+// Re-run when unit preference changes
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'unitPreferenceChanged') {
+        processProducts();
+    }
+});

@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     selectLiquid.addEventListener('change', () => {
         chrome.storage.sync.set({ preferredUnitLiquid: selectLiquid.value });
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'unitPreferenceChanged' });
+        });
     });
 
     const selectWeight = document.getElementById('preferred-unit-weight');
@@ -23,5 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     selectWeight.addEventListener('change', () => {
         chrome.storage.sync.set({ preferredUnitWeight: selectWeight.value });
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'unitPreferenceChanged' });
+        });
     });
 });
