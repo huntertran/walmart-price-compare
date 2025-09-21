@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Walmart Price Per Unit",
-    "version": "1.2",
+    "version": "1.3",
     "description": "Shows price per unit for items on walmart.ca.",
     "permissions": [
         "activeTab",
@@ -12,6 +12,17 @@
         "https://www.walmart.ca/*"
     ],
     "homepage_url": "https://huntertran.ca/2025/08/31/Grocery-stores-Price-per-Unit-add-on/",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "@huntertran-walmart-price-per-unit",
+            "strict_min_version": "109.0",
+            "data_collection_permissions": {
+                "required": [
+                    "none"
+                ]
+            }
+        }
+    },
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
