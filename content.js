@@ -58,6 +58,7 @@ const bulkUnitRegexString = (() => {
 
 let preferredUnitWeight;
 let preferredUnitLiquid;
+let productMap = new Map();
 
 function getUnit(unitText) {
     for (let i = 0; i < Unit.All.length; i++) {
@@ -75,7 +76,12 @@ function extractPrice(container) {
     const priceEl = container.querySelector('[data-automation-id="product-price"]>[aria-hidden="true"]');
     if (!priceEl) return null;
     const priceText = priceEl.textContent.replace(/[^\d\.]/g, '');
-    return parseFloat(priceText);
+    if (priceEl.textContent.includes('¢')) {
+        return (parseFloat(priceText) / 100)
+    }
+    else {
+        return parseFloat(priceText);
+    }
 }
 
 function extractWalmartPricePerUnit(container) {
@@ -219,12 +225,16 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     infoDiv.style.margin = '10px 0';
     infoDiv.style.borderRadius = '4px';
 
+    let pricePerUnit = 0;
+
     // Set text content
     if (usedWalmartPPU && (preferredUnit === null || preferredUnit === undefined)) {
         infoDiv.textContent = `$${walmartPricePerUnit.value.toFixed(2)} / ${walmartPricePerUnit.unit.StandardAmount}`;
+        pricePerUnit = walmartPricePerUnit.value;
     }
     else {
         infoDiv.textContent = `$${(price / (unitObj.amount * unitObj.unit.ScaleToStandard)).toFixed(2)} / ${unitObj.unit.StandardAmount}`;
+        pricePerUnit = price / (unitObj.amount * unitObj.unit.ScaleToStandard);
     }
 
     // If using Walmart price per unit, add Walmart icon
@@ -291,6 +301,8 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     } else {
         container.body.prepend(infoDiv);
     }
+
+    return pricePerUnit;
 }
 
 function getPreferredUnit(unitObj) {
@@ -328,12 +340,17 @@ function processProducts(isForced = false) {
         productContainers.forEach(container => {
             // Prevent duplicate infoDivs
             if (container.querySelector('.price-per-unit-info') && !isForced) return;
-            const price = extractPrice(container);
-            const unitObj = extractUnit(container);
-            const promo = extractPromotion(container);
-            const couponValue = extractCoupon(container);
-            const walmartPricePerUnit = extractWalmartPricePerUnit(container)
-            showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit);
+            // Get product ID
+            const productId = container.getAttribute('data-item-id');
+            if (!productId) return;
+
+            let price = extractPrice(container);
+            let unitObj = extractUnit(container);
+            let promo = extractPromotion(container);
+            let couponValue = extractCoupon(container);
+            let walmartPricePerUnit = extractWalmartPricePerUnit(container)
+            let pricePerUnit = showPricePerUnit(container, price, unitObj, promo, couponValue, walmartPricePerUnit);
+            productMap.set(productId, pricePerUnit);
         });
     });
 }
