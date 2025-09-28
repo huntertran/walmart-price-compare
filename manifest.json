@@ -31,6 +31,17 @@
             "128": "icon128.png"
         }
     },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "styles/popup.css",
+                "pages/unit-selection.html"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
     "content_scripts": [
         {
             "matches": [
@@ -38,9 +49,6 @@
             ],
             "js": [
                 "content.js"
-            ],
-            "css": [
-                "content.css"
             ],
             "run_at": "document_idle"
         }

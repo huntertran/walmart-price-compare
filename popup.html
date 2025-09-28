@@ -6,61 +6,33 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1">
     <title>Walmart Price Per Unit</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            min-width: 200px;
-            padding: 10px;
-        }
-
-        #result {
-            font-weight: bold;
-            margin-top: 10px;
-        }
-
-        label {
-            display: block;
-            margin-top: 15px;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-
-        select {
-            width: 100%;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            background: #f9f9f9;
-            font-size: 15px;
-            margin-bottom: 10px;
-            transition: border-color 0.2s;
-        }
-
-        select:focus {
-            border-color: #ffe600;
-            outline: none;
-            background: #fffbe6;
-        }
-    </style>
+    <link rel="stylesheet"
+          href="styles/popup.css">
 </head>
 
 <body>
-    <h3>Price Per Unit</h3>
-    <div id="result">Open a Walmart.ca product page to see price per unit.</div>
+    <div class="price-per-unit-setting-container">
+        <h3>Price Per Unit</h3>
+        <div id="result">Open a Walmart.ca product page to see price per unit.</div>
 
-    <label for="preferred-unit-liquid">Preferred liquid unit:</label>
-    <select id="preferred-unit-liquid">
-        <option value="">As is (no conversion)</option>
-        <option value="ml">ml</option>
-        <option value="oz">oz</option>
-    </select>
-    <br><br>
-    <label for="preferred-unit-weight">Preferred weight unit:</label>
-    <select id="preferred-unit-weight">
-        <option value="">As is (no conversion)</option>
-        <option value="g">g</option>
-        <option value="lb">lb</option>
-    </select>
+        <label class="price-per-unit-setting-label"
+               for="preferred-unit-liquid">Preferred liquid unit:</label>
+        <select class="price-per-unit-setting-select"
+                id="preferred-unit-liquid">
+            <option value="">As is (no conversion)</option>
+            <option value="ml">ml</option>
+            <option value="oz">oz</option>
+        </select>
+        <br><br>
+        <label class="price-per-unit-setting-label"
+               for="preferred-unit-weight">Preferred weight unit:</label>
+        <select class="price-per-unit-setting-select"
+                id="preferred-unit-weight">
+            <option value="">As is (no conversion)</option>
+            <option value="g">g</option>
+            <option value="lb">lb</option>
+        </select>
+    </div>
     <script src="popup.js"></script>
 </body>
 

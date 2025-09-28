@@ -192,19 +192,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     }
 
     // Conversion
-    let preferredUnit = null;
-    switch (unitObj.unit) {
-        case Unit.Gram:
-        case Unit.Kilogram:
-        case Unit.Pound: {
-            preferredUnit = preferredUnitWeight;
-            break;
-        }
-        default: {
-            preferredUnit = preferredUnitLiquid;
-            break;
-        }
-    }
+    let preferredUnit = getPreferredUnit(unitObj);
     if (preferredUnit && preferredUnit !== unitObj.unit) {
         unitObj.amount = unitObj.amount * unitObj.unit.ScaleToStandardUnit
         unitObj.unit = preferredUnit;
@@ -305,19 +293,23 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     }
 }
 
-async function getPreferredUnit(unitObj) {
-    let preferredUnit;
+function getPreferredUnit(unitObj) {
+    let preferredUnit = null;
     switch (unitObj.unit) {
         case Unit.Gram:
         case Unit.Kilogram:
         case Unit.Pound: {
-            let textUnit = await chrome.storage.sync.get('preferredUnitWeight');
-            preferredUnit = getUnit(textUnit);
+            preferredUnit = preferredUnitWeight;
+            break;
+        }
+        case Unit.Liter:
+        case Unit.Milliliter:
+        case Unit.Ounce: {
+            preferredUnit = preferredUnitLiquid;
             break;
         }
         default: {
-            let textUnit = await chrome.storage.sync.get('preferredUnitLiquid')
-            preferredUnit = getUnit(textUnit);
+            preferredUnit = Unit.Count;
             break;
         }
     }
@@ -326,15 +318,16 @@ async function getPreferredUnit(unitObj) {
 }
 
 // Select all product containers (adjust selector as needed)
-function processProducts() {
+function processProducts(isForced = false) {
+    injectUnitFilter();
     chrome.storage.sync.get(['preferredUnitLiquid', 'preferredUnitWeight'], (data) => {
         preferredUnitLiquid = getUnit(data.preferredUnitLiquid) || undefined;
         preferredUnitWeight = getUnit(data.preferredUnitWeight) || undefined;
 
         const productContainers = document.querySelectorAll('[data-item-id]');
         productContainers.forEach(container => {
-            // // Prevent duplicate infoDivs
-            // if (container.querySelector('.price-per-unit-info')) return;
+            // Prevent duplicate infoDivs
+            if (container.querySelector('.price-per-unit-info') && !isForced) return;
             const price = extractPrice(container);
             const unitObj = extractUnit(container);
             const promo = extractPromotion(container);
@@ -345,31 +338,111 @@ function processProducts() {
     });
 }
 
+function injectUnitFilter() {
+    const sortSection = document.querySelector('[aria-label="Sort and Filter section"]');
+    if (!sortSection) return;
+
+    // Check if settings icon already exists
+    if (sortSection.querySelector('[data-testid="unit-settings-icon"]')) return;
+
+    // Create settings icon button
+    const settingsDiv = document.createElement('div');
+    settingsDiv.className = 'flex items-center flex-shrink-0';
+    settingsDiv.innerHTML = `
+        <button type="button" 
+                class="f6 pv2 ph2 br-pill bn bg-near-white dark-gray pointer flex items-center" 
+                data-testid="unit-settings-icon"
+                title="Unit Settings">
+            <i class="ld ld-Gear" style="font-size:1rem;vertical-align:-0.175em;width:1rem;height:1rem;box-sizing:content-box"></i>
+        </button>
+        <span class="mh2">|</span>
+    `;
+
+    // Find the sort by section
+    const sortBySection = sortSection.querySelector('.ml-auto');
+    if (sortBySection) {
+        // Insert before the "Sort by" text
+        sortBySection.insertBefore(settingsDiv, sortBySection.firstChild);
+    } else {
+        // Fallback: append to the end of sort section
+        sortSection.appendChild(settingsDiv);
+    }
+
+    // Add click handler
+    settingsDiv.querySelector('button').addEventListener('click', () => {
+        openUnitSettings();
+    });
+}
+
+function openUnitSettings() {
+    // Load CSS first
+    const cssPromise = new Promise((resolve, reject) => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = chrome.runtime.getURL('/styles/popup.css');
+        link.onload = resolve;
+        link.onerror = reject;
+        document.head.appendChild(link);
+    });
+
+    // Then load HTML
+    Promise.all([
+        cssPromise,
+        fetch(chrome.runtime.getURL('/pages/unit-selection.html')).then(r => r.text())
+    ]).then(([_, html]) => {
+        const modal = document.createElement('div');
+        modal.className = 'price-per-unit-setting-modal-overlay';
+        modal.innerHTML = `
+            <div class="price-per-unit-setting-modal-content">
+                <button class="price-per-unit-setting-modal-close">×</button>
+                ${html}
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Initialize select values
+        const selectLiquid = modal.querySelector('#preferred-unit-liquid');
+        const selectWeight = modal.querySelector('#preferred-unit-weight');
+
+        chrome.storage.sync.get(['preferredUnitLiquid', 'preferredUnitWeight'], (data) => {
+            if (data.preferredUnitLiquid) selectLiquid.value = data.preferredUnitLiquid;
+            if (data.preferredUnitWeight) selectWeight.value = data.preferredUnitWeight;
+        });
+
+        // Add event listeners
+        const closeModal = () => document.body.removeChild(modal);
+        modal.querySelector('.price-per-unit-setting-modal-close').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        selectLiquid.addEventListener('change', () => {
+            chrome.storage.sync.set({ preferredUnitLiquid: selectLiquid.value });
+            processProducts(true);
+        });
+
+        selectWeight.addEventListener('change', () => {
+            chrome.storage.sync.set({ preferredUnitWeight: selectWeight.value });
+            processProducts(true);
+        });
+    }).catch(err => {
+        console.error('Error loading unit settings:', err);
+    });
+}
+
 // Initial run
 processProducts();
 
-// // Re-run when DOM changes
-// const observer = new MutationObserver(() => {
-//     processProducts();
-// });
-// observer.observe(document.body, { childList: true, subtree: true });
-
-// Re-run when URL changes (for SPA navigation)
-// let lastUrl = location.href;
-// setInterval(() => {
-//     if (location.href !== lastUrl) {
-//         lastUrl = location.href;
-//         processProducts();
-//     }
-// }, 500);
-
-document.addEventListener('DOMContentLoaded', () => {
+// Re-run when DOM changes
+const observer = new MutationObserver(() => {
     processProducts();
 });
+observer.observe(document.body, { childList: true, subtree: true });
 
 // Re-run when unit preference changes
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'unitPreferenceChanged') {
-        processProducts();
+        processProducts(true);
     }
 });
