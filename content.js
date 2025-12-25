@@ -269,7 +269,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     // Coupon price per unit
     if (couponValue) {
         let couponPrice = Math.max(price - couponValue, 0);
-        let couponPerUnit = couponPrice / (unitObj.amount / unitObj.unit.ScaleToStandard);
+        let couponPerUnit = couponPrice / (unitObj.amount * unitObj.unit.ScaleToStandard);
         let couponDiv = document.createElement('div');
         couponDiv.className = 'price-per-unit-info-coupon';
         couponDiv.textContent = `$${couponPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | with $${couponValue} coupon`;
@@ -284,7 +284,7 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
     // Coupon + Promotion price per unit
     if (couponValue && promo) {
         let promoCouponPrice = Math.max(promo.total - couponValue, 0);
-        let promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) / unitObj.unit.ScaleToStandard);
+        let promoCouponPerUnit = promoCouponPrice / ((unitObj.amount * promo.qty) * unitObj.unit.ScaleToStandard);
         let promoCouponDiv = document.createElement('div');
         promoCouponDiv.className = 'price-per-unit-info-promo-coupon';
         promoCouponDiv.textContent = `$${promoCouponPerUnit.toFixed(2)} / ${unitObj.unit.StandardAmount} | With $${couponValue} coupon & buying ${promo.qty}`;
