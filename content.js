@@ -211,7 +211,9 @@ function showPricePerUnit(container, price, unitObj, promo, couponValue, walmart
         infoDiv = document.createElement('div');
     } else {
         // Clear previous content if reusing
-        infoDiv.innerHTML = '';
+        while (infoDiv.firstChild) {
+            infoDiv.removeChild(infoDiv.firstChild);
+        }
     }
 
     let usedWalmartPPU =
@@ -365,15 +367,32 @@ function injectUnitFilter() {
     // Create settings icon button
     const settingsDiv = document.createElement('div');
     settingsDiv.className = 'flex items-center flex-shrink-0';
-    settingsDiv.innerHTML = `
-        <button type="button" 
-                class="f6 pv2 ph2 br-pill bn bg-near-white dark-gray pointer flex items-center" 
-                data-testid="unit-settings-icon"
-                title="Unit Settings">
-            <i class="ld ld-Gear" style="font-size:1rem;vertical-align:-0.175em;width:1rem;height:1rem;box-sizing:content-box"></i>
-        </button>
-        <span class="mh2">|</span>
-    `;
+    // Create button
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'f6 pv2 ph2 br-pill bn bg-near-white dark-gray pointer flex items-center';
+    button.setAttribute('data-testid', 'unit-settings-icon');
+    button.title = 'Unit Settings';
+
+    // Create icon
+    const icon = document.createElement('i');
+    icon.className = 'ld ld-Gear';
+    icon.style.fontSize = '1rem';
+    icon.style.verticalAlign = '-0.175em';
+    icon.style.width = '1rem';
+    icon.style.height = '1rem';
+    icon.style.boxSizing = 'content-box';
+
+    button.appendChild(icon);
+
+    // Create separator
+    const separator = document.createElement('span');
+    separator.className = 'mh2';
+    separator.textContent = '|';
+
+    // Append to settingsDiv
+    settingsDiv.appendChild(button);
+    settingsDiv.appendChild(separator);
 
     // Find the sort by section
     const sortBySection = sortSection.querySelector('.ml-auto');
@@ -409,13 +428,27 @@ function openUnitSettings() {
     ]).then(([_, html]) => {
         const modal = document.createElement('div');
         modal.className = 'price-per-unit-setting-modal-overlay';
-        modal.innerHTML = `
-            <div class="price-per-unit-setting-modal-content">
-                <button class="price-per-unit-setting-modal-close">×</button>
-                ${html}
-            </div>
-        `;
 
+        const modalContent = document.createElement('div');
+        modalContent.className = 'price-per-unit-setting-modal-content';
+
+        const closeButton = document.createElement('button');
+        closeButton.className = 'price-per-unit-setting-modal-close';
+        closeButton.textContent = '×';
+        modalContent.appendChild(closeButton);
+
+        // Create temporary container to parse HTML content
+        const temp = document.createElement('div');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        temp.appendChild(doc.querySelector('.price-per-unit-setting-container'));
+
+        // Move content from temp to modal
+        while (temp.firstChild) {
+            modalContent.appendChild(temp.firstChild);
+        }
+
+        modal.appendChild(modalContent);
         document.body.appendChild(modal);
 
         // Initialize select values
